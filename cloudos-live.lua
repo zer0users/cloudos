@@ -20,291 +20,273 @@ if not fs.exists("partition/boot") then
     fs.makeDir("partition/boot")
 end
 
--- Crear recovery.lua
-local recoveryCode = "-- ==========================================\n" ..
-"-- CLOUDOS RECOVERY SYSTEM v1.0\n" ..
-"-- ==========================================\n"
+-- Función para escribir recovery.lua
+local function createRecoverySystem()
+    local file = fs.open("partition/recovery/recovery.lua", "w")
+    
+    file.writeLine("-- CloudOS Recovery System v1.0")
+    file.writeLine("")
+    file.writeLine("local currentDir = \"partition:recovery\"")
+    file.writeLine("local currentPartition = \"recovery\"")
+    file.writeLine("")
+    file.writeLine("local function parseCommand(input)")
+    file.writeLine("    local parts = {}")
+    file.writeLine("    for part in input:gmatch(\"%S+\") do")
+    file.writeLine("        table.insert(parts, part)")
+    file.writeLine("    end")
+    file.writeLine("    return parts")
+    file.writeLine("end")
+    file.writeLine("")
+    file.writeLine("local function getActualPath(path)")
+    file.writeLine("    if path and path:match(\"^partition:\") then")
+    file.writeLine("        local partName = path:match(\"^partition:(.+)\")")
+    file.writeLine("        return \"partition/\" .. partName")
+    file.writeLine("    else")
+    file.writeLine("        if currentPartition == \"recovery\" then")
+    file.writeLine("            return \"partition/recovery/\" .. (path or \"\")")
+    file.writeLine("        elseif currentPartition == \"boot\" then")
+    file.writeLine("            return \"partition/boot/\" .. (path or \"\")")
+    file.writeLine("        else")
+    file.writeLine("            return \"partition/\" .. currentPartition .. \"/\" .. (path or \"\")")
+    file.writeLine("        end")
+    file.writeLine("    end")
+    file.writeLine("end")
+    file.writeLine("")
+    file.writeLine("local function listFiles(path)")
+    file.writeLine("    local actualPath = path and getActualPath(path) or getActualPath(\"\")")
+    file.writeLine("    if not fs.exists(actualPath) then")
+    file.writeLine("        print(\"Directory not found: \" .. (path or currentDir))")
+    file.writeLine("        return")
+    file.writeLine("    end")
+    file.writeLine("    local files = fs.list(actualPath)")
+    file.writeLine("    for _, file in ipairs(files) do")
+    file.writeLine("        if fs.isDir(fs.combine(actualPath, file)) then")
+    file.writeLine("            print(file .. \"/\")")
+    file.writeLine("        else")
+    file.writeLine("            print(file)")
+    file.writeLine("        end")
+    file.writeLine("    end")
+    file.writeLine("end")
+    file.writeLine("")
+    file.writeLine("local function changeDirectory(path)")
+    file.writeLine("    if not path then")
+    file.writeLine("        print(\"Usage: cd <directory/partition>\")")
+    file.writeLine("        return")
+    file.writeLine("    end")
+    file.writeLine("    if path:match(\"^partition:\") then")
+    file.writeLine("        local partName = path:match(\"^partition:(.+)\")")
+    file.writeLine("        local partPath = \"partition/\" .. partName")
+    file.writeLine("        if fs.exists(partPath) and fs.isDir(partPath) then")
+    file.writeLine("            currentDir = path")
+    file.writeLine("            currentPartition = partName")
+    file.writeLine("            print(\"Changed to \" .. path)")
+    file.writeLine("        else")
+    file.writeLine("            print(\"Partition not found: \" .. partName)")
+    file.writeLine("        end")
+    file.writeLine("    else")
+    file.writeLine("        local newPath = getActualPath(path)")
+    file.writeLine("        if fs.exists(newPath) and fs.isDir(newPath) then")
+    file.writeLine("            currentDir = currentDir .. \"/\" .. path")
+    file.writeLine("        else")
+    file.writeLine("            print(\"Directory not found: \" .. path)")
+    file.writeLine("        end")
+    file.writeLine("    end")
+    file.writeLine("end")
+    file.writeLine("")
+    file.writeLine("local function mountPartition(partName)")
+    file.writeLine("    if not partName then")
+    file.writeLine("        print(\"Usage: mount <partition_name>\")")
+    file.writeLine("        return")
+    file.writeLine("    end")
+    file.writeLine("    local partPath = \"partition/\" .. partName")
+    file.writeLine("    if not fs.exists(partPath) then")
+    file.writeLine("        fs.makeDir(partPath)")
+    file.writeLine("        print(\"Partition '\" .. partName .. \"' mounted successfully\")")
+    file.writeLine("    else")
+    file.writeLine("        print(\"Partition '\" .. partName .. \"' already exists\")")
+    file.writeLine("    end")
+    file.writeLine("end")
+    file.writeLine("")
+    file.writeLine("local function unmountPartition(partName)")
+    file.writeLine("    if not partName then")
+    file.writeLine("        print(\"Usage: unmount <partition_name>\")")
+    file.writeLine("        return")
+    file.writeLine("    end")
+    file.writeLine("    if partName == \"recovery\" or partName == \"boot\" then")
+    file.writeLine("        print(\"Cannot unmount system partition: \" .. partName)")
+    file.writeLine("        return")
+    file.writeLine("    end")
+    file.writeLine("    local partPath = \"partition/\" .. partName")
+    file.writeLine("    if fs.exists(partPath) then")
+    file.writeLine("        fs.delete(partPath)")
+    file.writeLine("        print(\"Partition '\" .. partName .. \"' unmounted successfully\")")
+    file.writeLine("    else")
+    file.writeLine("        print(\"Partition not found: \" .. partName)")
+    file.writeLine("    end")
+    file.writeLine("end")
+    file.writeLine("")
+    file.writeLine("local function cloudPackageManager(action, packageName)")
+    file.writeLine("    if action == \"install\" then")
+    file.writeLine("        if not packageName then")
+    file.writeLine("            print(\"Usage: cloud install <package_name>\")")
+    file.writeLine("            return")
+    file.writeLine("        end")
+    file.writeLine("        print(\"Searching for \\\"\" .. packageName .. \"\\\"..\") ")
+    file.writeLine("        local url = \"https://raw.githubusercontent.com/zer0users/cloudos/refs/heads/main/repository/\" .. packageName .. \".lua\"")
+    file.writeLine("        local success = true")
+    file.writeLine("        if success then")
+    file.writeLine("            local packageSize = math.random(1024, 8192)")
+    file.writeLine("            print(\"This Package is \" .. packageSize .. \" bytes.\")")
+    file.writeLine("            write(\"Do you want to install it? (Y/N): \")")
+    file.writeLine("            local response = read()")
+    file.writeLine("            if response:lower() == \"y\" or response:lower() == \"yes\" then")
+    file.writeLine("                print(\"Installing \" .. packageName .. \"..\")")
+    file.writeLine("                print(\"======================\")")
+    file.writeLine("                print(\"Package installation script would run here...\")")
+    file.writeLine("                print(\"Creating files and directories...\")")
+    file.writeLine("                print(\"Configuring system...\")")
+    file.writeLine("                print(\"======================\")")
+    file.writeLine("                print(\"Done! Thank Jehovah!\")")
+    file.writeLine("            else")
+    file.writeLine("                print(\"Installation cancelled.\")")
+    file.writeLine("            end")
+    file.writeLine("        else")
+    file.writeLine("            print(\"Package not found: \" .. packageName)")
+    file.writeLine("        end")
+    file.writeLine("    elseif action == \"list\" then")
+    file.writeLine("        print(\"Available packages:\")")
+    file.writeLine("        print(\"- mi-os\")")
+    file.writeLine("        print(\"- terminal-os\")")
+    file.writeLine("        print(\"- micro-kernel\")")
+    file.writeLine("        print(\"Use 'cloud install <package>' to install\")")
+    file.writeLine("    else")
+    file.writeLine("        print(\"CloudOS Package Manager\")")
+    file.writeLine("        print(\"Usage:\")")
+    file.writeLine("        print(\"  cloud install <package> - Install a package\")")
+    file.writeLine("        print(\"  cloud list              - List available packages\")")
+    file.writeLine("    end")
+    file.writeLine("end")
+    file.writeLine("")
+    file.writeLine("-- Main recovery loop")
+    file.writeLine("print(\"CloudOS Recovery 1.0\")")
+    file.writeLine("while true do")
+    file.writeLine("    write(\"root:\" .. currentPartition .. \"#> \")")
+    file.writeLine("    local input = read()")
+    file.writeLine("    if input == \"\" then")
+    file.writeLine("        -- Skip empty lines")
+    file.writeLine("    elseif input == \"exit\" or input == \"quit\" then")
+    file.writeLine("        print(\"Rebooting to boot partition...\")")
+    file.writeLine("        sleep(1)")
+    file.writeLine("        if fs.exists(\"partition/system\") and #fs.list(\"partition/system\") > 0 then")
+    file.writeLine("            print(\"System partition found, attempting to boot...\")")
+    file.writeLine("        else")
+    file.writeLine("            print(\"No system partition found, staying in recovery mode.\")")
+    file.writeLine("        end")
+    file.writeLine("        break")
+    file.writeLine("    else")
+    file.writeLine("        local parts = parseCommand(input)")
+    file.writeLine("        local command = parts[1]")
+    file.writeLine("        if command == \"ls\" then")
+    file.writeLine("            listFiles(parts[2])")
+    file.writeLine("        elseif command == \"cd\" then")
+    file.writeLine("            changeDirectory(parts[2])")
+    file.writeLine("        elseif command == \"mount\" then")
+    file.writeLine("            mountPartition(parts[2])")
+    file.writeLine("        elseif command == \"unmount\" then")
+    file.writeLine("            unmountPartition(parts[2])")
+    file.writeLine("        elseif command == \"cloud\" then")
+    file.writeLine("            cloudPackageManager(parts[2], parts[3])")
+    file.writeLine("        elseif command == \"help\" then")
+    file.writeLine("            print(\"CloudOS Recovery Commands:\")")
+    file.writeLine("            print(\"  ls [path]                 - List files and directories\")")
+    file.writeLine("            print(\"  cd <path/partition>       - Change directory\")")
+    file.writeLine("            print(\"  mount <partition>         - Create/mount partition\")")
+    file.writeLine("            print(\"  unmount <partition>       - Remove/unmount partition\")")
+    file.writeLine("            print(\"  cloud install <package>   - Install package\")")
+    file.writeLine("            print(\"  cloud list               - List available packages\")")
+    file.writeLine("            print(\"  help                     - Show this help\")")
+    file.writeLine("            print(\"  exit                     - Exit recovery mode\")")
+    file.writeLine("        else")
+    file.writeLine("            print(\"Unknown command: \" .. command)")
+    file.writeLine("            print(\"Type 'help' for available commands\")")
+    file.writeLine("        end")
+    file.writeLine("    end")
+    file.writeLine("end")
+    
+    file.close()
+end
 
-recoveryCode = recoveryCode .. "\n" ..
-"local currentDir = \"partition:recovery\"\n" ..
-"local currentPartition = \"recovery\"\n\n" ..
-"-- Funciones del sistema\n" ..
-"local function parseCommand(input)\n" ..
-"    local parts = {}\n" ..
-"    for part in input:gmatch(\"%S+\") do\n" ..
-"        table.insert(parts, part)\n" ..
-"    end\n" ..
-"    return parts\n" ..
-"end\n\n" ..
-"local function getActualPath(path)\n" ..
-"    if path:match(\"^partition:\") then\n" ..
-"        local partName = path:match(\"^partition:(.+)\")\n" ..
-"        return \"partition/\" .. partName\n" ..
-"    else\n" ..
-"        if currentPartition == \"recovery\" then\n" ..
-"            return \"partition/recovery/\" .. (path or \"\")\n" ..
-"        elseif currentPartition == \"boot\" then\n" ..
-"            return \"partition/boot/\" .. (path or \"\")\n" ..
-"        else\n" ..
-"            return \"partition/\" .. currentPartition .. \"/\" .. (path or \"\")\n" ..
-"        end\n" ..
-"    end\n" ..
-"end\n\n" ..
-"local function listFiles(path)\n" ..
-"    local actualPath = path and getActualPath(path) or getActualPath(\"\")\n" ..
-"    \n" ..
-"    if not fs.exists(actualPath) then\n" ..
-"        print(\"Directory not found: \" .. (path or currentDir))\n" ..
-"        return\n" ..
-"    end\n" ..
-"    \n" ..
-"    local files = fs.list(actualPath)\n" ..
-"    for _, file in ipairs(files) do\n" ..
-"        if fs.isDir(fs.combine(actualPath, file)) then\n" ..
-"            print(file .. \"/\")\n" ..
-"        else\n" ..
-"            print(file)\n" ..
-"        end\n" ..
-"    end\n" ..
-"end\n\n" ..
-"local function changeDirectory(path)\n" ..
-"    if not path then\n" ..
-"        print(\"Usage: cd <directory/partition>\")\n" ..
-"        return\n" ..
-"    end\n" ..
-"    \n" ..
-"    if path:match(\"^partition:\") then\n" ..
-"        local partName = path:match(\"^partition:(.+)\")\n" ..
-"        local partPath = \"partition/\" .. partName\n" ..
-"        \n" ..
-"        if fs.exists(partPath) and fs.isDir(partPath) then\n" ..
-"            currentDir = path\n" ..
-"            currentPartition = partName\n" ..
-"            print(\"Changed to \" .. path)\n" ..
-"        else\n" ..
-"            print(\"Partition not found: \" .. partName)\n" ..
-"        end\n" ..
-"    else\n" ..
-"        local newPath = getActualPath(path)\n" ..
-"        if fs.exists(newPath) and fs.isDir(newPath) then\n" ..
-"            currentDir = currentDir .. \"/\" .. path\n" ..
-"        else\n" ..
-"            print(\"Directory not found: \" .. path)\n" ..
-"        end\n" ..
-"    end\n" ..
-"end\n\n" ..
-"local function mountPartition(partName)\n" ..
-"    if not partName then\n" ..
-"        print(\"Usage: mount <partition_name>\")\n" ..
-"        return\n" ..
-"    end\n" ..
-"    \n" ..
-"    local partPath = \"partition/\" .. partName\n" ..
-"    if not fs.exists(partPath) then\n" ..
-"        fs.makeDir(partPath)\n" ..
-"        print(\"Partition '\" .. partName .. \"' mounted successfully\")\n" ..
-"    else\n" ..
-"        print(\"Partition '\" .. partName .. \"' already exists\")\n" ..
-"    end\n" ..
-"end\n\n" ..
-"local function unmountPartition(partName)\n" ..
-"    if not partName then\n" ..
-"        print(\"Usage: unmount <partition_name>\")\n" ..
-"        return\n" ..
-"    end\n" ..
-"    \n" ..
-"    if partName == \"recovery\" or partName == \"boot\" then\n" ..
-"        print(\"Cannot unmount system partition: \" .. partName)\n" ..
-"        return\n" ..
-"    end\n" ..
-"    \n" ..
-"    local partPath = \"partition/\" .. partName\n" ..
-"    if fs.exists(partPath) then\n" ..
-"        fs.delete(partPath)\n" ..
-"        print(\"Partition '\" .. partName .. \"' unmounted successfully\")\n" ..
-"    else\n" ..
-"        print(\"Partition not found: \" .. partName)\n" ..
-"    end\n" ..
-"end\n\n" ..
-"local function cloudPackageManager(action, packageName)\n" ..
-"    if action == \"install\" then\n" ..
-"        if not packageName then\n" ..
-"            print(\"Usage: cloud install <package_name>\")\n" ..
-"            return\n" ..
-"        end\n" ..
-"        \n" ..
-"        print(\"Searching for \\\"\" .. packageName .. \"\\\"..\") \n" ..
-"        \n" ..
-"        local url = \"https://raw.githubusercontent.com/zer0users/cloudos/refs/heads/main/repository/\" .. packageName .. \".lua\"\n" ..
-"        \n" ..
-"        -- Simular descarga y verificacion de tamano\n" ..
-"        local success = true\n" ..
-"        \n" ..
-"        if success then\n" ..
-"            local packageSize = math.random(1024, 8192)\n" ..
-"            print(\"This Package is \" .. packageSize .. \" bytes.\")\n" ..
-"            \n" ..
-"            write(\"Do you want to install it? (Y/N): \")\n" ..
-"            local response = read()\n" ..
-"            \n" ..
-"            if response:lower() == \"y\" or response:lower() == \"yes\" then\n" ..
-"                print(\"Installing \" .. packageName .. \"..\")\n" ..
-"                print(\"======================\")\n" ..
-"                \n" ..
-"                print(\"Package installation script would run here...\")\n" ..
-"                print(\"Creating files and directories...\")\n" ..
-"                print(\"Configuring system...\")\n" ..
-"                \n" ..
-"                print(\"======================\")\n" ..
-"                print(\"Done! Thank Jehovah!\")\n" ..
-"            else\n" ..
-"                print(\"Installation cancelled.\")\n" ..
-"            end\n" ..
-"        else\n" ..
-"            print(\"Package not found: \" .. packageName)\n" ..
-"        end\n" ..
-"        \n" ..
-"    elseif action == \"list\" then\n" ..
-"        print(\"Available packages:\")\n" ..
-"        print(\"- mi-os\")\n" ..
-"        print(\"- terminal-os\")\n" ..
-"        print(\"- micro-kernel\")\n" ..
-"        print(\"Use 'cloud install <package>' to install\")\n" ..
-"        \n" ..
-"    else\n" ..
-"        print(\"CloudOS Package Manager\")\n" ..
-"        print(\"Usage:\")\n" ..
-"        print(\"  cloud install <package> - Install a package\")\n" ..
-"        print(\"  cloud list              - List available packages\")\n" ..
-"    end\n" ..
-"end\n\n" ..
-"-- Loop principal del recovery\n" ..
-"print(\"CloudOS Recovery 1.0\")\n\n" ..
-"while true do\n" ..
-"    write(\"root:\" .. currentPartition .. \"#> \")\n" ..
-"    local input = read()\n" ..
-"    \n" ..
-"    if input == \"\" then\n" ..
-"        -- No hacer nada con lineas vacias\n" ..
-"    elseif input == \"exit\" or input == \"quit\" then\n" ..
-"        print(\"Rebooting to boot partition...\")\n" ..
-"        sleep(1)\n" ..
-"        if fs.exists(\"partition/system\") and #fs.list(\"partition/system\") > 0 then\n" ..
-"            print(\"System partition found, attempting to boot...\")\n" ..
-"        else\n" ..
-"            print(\"No system partition found, staying in recovery mode.\")\n" ..
-"        end\n" ..
-"        break\n" ..
-"    else\n" ..
-"        local parts = parseCommand(input)\n" ..
-"        local command = parts[1]\n" ..
-"        \n" ..
-"        if command == \"ls\" then\n" ..
-"            listFiles(parts[2])\n" ..
-"            \n" ..
-"        elseif command == \"cd\" then\n" ..
-"            changeDirectory(parts[2])\n" ..
-"            \n" ..
-"        elseif command == \"mount\" then\n" ..
-"            mountPartition(parts[2])\n" ..
-"            \n" ..
-"        elseif command == \"unmount\" then\n" ..
-"            unmountPartition(parts[2])\n" ..
-"            \n" ..
-"        elseif command == \"cloud\" then\n" ..
-"            cloudPackageManager(parts[2], parts[3])\n" ..
-"            \n" ..
-"        elseif command == \"help\" then\n" ..
-"            print(\"CloudOS Recovery Commands:\")\n" ..
-"            print(\"  ls [path]                 - List files and directories\")\n" ..
-"            print(\"  cd <path/partition>       - Change directory\")\n" ..
-"            print(\"  mount <partition>         - Create/mount partition\")\n" ..
-"            print(\"  unmount <partition>       - Remove/unmount partition\")\n" ..
-"            print(\"  cloud install <package>   - Install package\")\n" ..
-"            print(\"  cloud list               - List available packages\")\n" ..
-"            print(\"  help                     - Show this help\")\n" ..
-"            print(\"  exit                     - Exit recovery mode\")\n" ..
-"            \n" ..
-"        else\n" ..
-"            print(\"Unknown command: \" .. command)\n" ..
-"            print(\"Type 'help' for available commands\")\n" ..
-"        end\n" ..
-"    end\n" ..
-"end"
+-- Función para escribir boot.lua
+local function createBootSystem()
+    local file = fs.open("partition/boot/boot.lua", "w")
+    
+    file.writeLine("-- CloudOS Boot System")
+    file.writeLine("print(\"Welcome to CloudOS!\")")
+    file.writeLine("print(\"BOOTLOADER_REASON=\\\"AUTOMATIC_REBOOT\\\"\")")
+    file.writeLine("sleep(0.1)")
+    file.writeLine("term.clear()")
+    file.writeLine("term.setCursorPos(1, 1)")
+    file.writeLine("")
+    file.writeLine("if fs.exists(\"partition/system\") and #fs.list(\"partition/system\") > 0 then")
+    file.writeLine("    print(\"System partition found. Attempting to boot system...\")")
+    file.writeLine("    if fs.exists(\"partition/system/init.lua\") then")
+    file.writeLine("        print(\"Loading system from partition/system/init.lua\")")
+    file.writeLine("        shell.run(\"partition/system/init.lua\")")
+    file.writeLine("    elseif fs.exists(\"partition/system/startup.lua\") then")
+    file.writeLine("        print(\"Loading system from partition/system/startup.lua\")")
+    file.writeLine("        shell.run(\"partition/system/startup.lua\")")
+    file.writeLine("    else")
+    file.writeLine("        print(\"No valid system startup file found in system partition.\")")
+    file.writeLine("        print(\"Falling back to recovery mode...\")")
+    file.writeLine("        shell.run(\"partition/recovery/recovery.lua\")")
+    file.writeLine("    end")
+    file.writeLine("else")
+    file.writeLine("    print(\"No system partition found or system partition is empty.\")")
+    file.writeLine("    print(\"Booting into recovery mode...\")")
+    file.writeLine("    sleep(1)")
+    file.writeLine("    shell.run(\"partition/recovery/recovery.lua\")")
+    file.writeLine("end")
+    
+    file.close()
+end
 
--- Escribir recovery.lua
-local recoveryFile = fs.open("partition/recovery/recovery.lua", "w")
-recoveryFile.write(recoveryCode)
-recoveryFile.close()
+-- Función para escribir startup.lua
+local function createMainStartup()
+    local file = fs.open("startup.lua", "w")
+    
+    file.writeLine("-- CloudOS Main Startup")
+    file.writeLine("if not fs.exists(\"partition\") then")
+    file.writeLine("    print(\"CloudOS partition structure not found!\")")
+    file.writeLine("    print(\"Please reinstall CloudOS.\")")
+    file.writeLine("    return")
+    file.writeLine("end")
+    file.writeLine("")
+    file.writeLine("if fs.exists(\"partition/boot/boot.lua\") then")
+    file.writeLine("    shell.run(\"partition/boot/boot.lua\")")
+    file.writeLine("else")
+    file.writeLine("    print(\"Boot system not found!\")")
+    file.writeLine("    print(\"CloudOS installation may be corrupted.\")")
+    file.writeLine("    if fs.exists(\"partition/recovery/recovery.lua\") then")
+    file.writeLine("        print(\"Attempting to load recovery system...\")")
+    file.writeLine("        shell.run(\"partition/recovery/recovery.lua\")")
+    file.writeLine("    else")
+    file.writeLine("        print(\"Recovery system also not found. Please reinstall CloudOS.\")")
+    file.writeLine("    end")
+    file.writeLine("end")
+    
+    file.close()
+end
 
--- Crear boot.lua
-local bootCode = "-- ==========================================\\n" ..
-"-- CLOUDOS BOOT SYSTEM\\n" ..
-"-- ==========================================\\n\\n" ..
-"print(\\\"Welcome to CloudOS!\\\")\\n" ..
-"print(\\\"BOOTLOADER_REASON=\\\\\\\"AUTOMATIC_REBOOT\\\\\\\"\\\")\\n" ..
-"sleep(0.1)\\n" ..
-"term.clear()\\n" ..
-"term.setCursorPos(1, 1)\\n\\n" ..
-"if fs.exists(\\\"partition/system\\\") and #fs.list(\\\"partition/system\\\") > 0 then\\n" ..
-"    print(\\\"System partition found. Attempting to boot system...\\\")\\n" ..
-"    \\n" ..
-"    if fs.exists(\\\"partition/system/init.lua\\\") then\\n" ..
-"        print(\\\"Loading system from partition/system/init.lua\\\")\\n" ..
-"        shell.run(\\\"partition/system/init.lua\\\")\\n" ..
-"    elseif fs.exists(\\\"partition/system/startup.lua\\\") then\\n" ..
-"        print(\\\"Loading system from partition/system/startup.lua\\\")\\n" ..
-"        shell.run(\\\"partition/system/startup.lua\\\")\\n" ..
-"    else\\n" ..
-"        print(\\\"No valid system startup file found in system partition.\\\")\\n" ..
-"        print(\\\"Falling back to recovery mode...\\\")\\n" ..
-"        shell.run(\\\"partition/recovery/recovery.lua\\\")\\n" ..
-"    end\\n" ..
-"else\\n" ..
-"    print(\\\"No system partition found or system partition is empty.\\\")\\n" ..
-"    print(\\\"Booting into recovery mode...\\\")\\n" ..
-"    sleep(1)\\n" ..
-"    shell.run(\\\"partition/recovery/recovery.lua\\\")\\n" ..
-"end"
-
--- Escribir boot.lua
-local bootFile = fs.open("partition/boot/boot.lua", "w")
-bootFile.write(bootCode)
-bootFile.close()
-
--- Crear startup.lua principal  
-local startupCode = "-- ==========================================\\n" ..
-"-- CLOUDOS MAIN STARTUP\\n" ..
-"-- ==========================================\\n\\n" ..
-"if not fs.exists(\\\"partition\\\") then\\n" ..
-"    print(\\\"CloudOS partition structure not found!\\\")\\n" ..
-"    print(\\\"Please reinstall CloudOS.\\\")\\n" ..
-"    return\\n" ..
-"end\\n\\n" ..
-"if fs.exists(\\\"partition/boot/boot.lua\\\") then\\n" ..
-"    shell.run(\\\"partition/boot/boot.lua\\\")\\n" ..
-"else\\n" ..
-"    print(\\\"Boot system not found!\\\")\\n" ..
-"    print(\\\"CloudOS installation may be corrupted.\\\")\\n" ..
-"    \\n" ..
-"    if fs.exists(\\\"partition/recovery/recovery.lua\\\") then\\n" ..
-"        print(\\\"Attempting to load recovery system...\\\")\\n" ..
-"        shell.run(\\\"partition/recovery/recovery.lua\\\")\\n" ..
-"    else\\n" ..
-"        print(\\\"Recovery system also not found. Please reinstall CloudOS.\\\")\\n" ..
-"    end\\n" ..
-"end"
-
--- Escribir startup.lua principal
-local startupFile = fs.open("startup.lua", "w")
-startupFile.write(startupCode)
-startupFile.close()
+-- Ejecutar las funciones de creación
+createRecoverySystem()
+createBootSystem()
+createMainStartup()
 
 print("Done!")
 print("Rebooting..")
 sleep(2)
 
--- Simular reinicio ejecutando el startup
+-- Ejecutar el startup
 shell.run("startup.lua")
 
 -- ==========================================
